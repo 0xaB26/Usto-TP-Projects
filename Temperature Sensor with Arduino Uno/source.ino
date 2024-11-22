@@ -1,81 +1,73 @@
-unsigned int read = 0;
-unsigned char state = 0, digits[3] = {0}, neww = 0, old = 0, time = 20,
-pins[] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11},
-values[] = {0x01, 0x4F, 0x12, 0x06, 0x4C, 0x24, 0x20, 0x0F, 0x00, 0x04};
+#include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+unsigned char pins[] = {7,8,9};
+const int lm35Pin = A3; 
+float temperatureC = 0.0;
 
-void extractDigits(void);
-void readValue(void);
-void display(void);
-
-void setup(void)
-{
-  for(unsigned char i = 0; i < 10; ++i)
-    pinMode(pins[i], OUTPUT);
-  pinMode(A3, INPUT);
-}
-
-void loop(void)
-{
-  readValue();
-  extractDigits();
-  display();
-}
-void readValue(void)
-{
-  read = analogRead(A3);
-  if(!state)
-  {
-    state = 0x01;
-    old = (read * 500.0) / 1024.0;
-  }
-  else
-  {
-    neww = (read * 500.0) / 1024.0;
-    if(neww != old)
-      old = neww;
-  }
-}
-void display(void)
-{
+void setup() {
+  lcd.init();
+  lcd.backlight();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("PRESENTED BY : ");
+  lcd.setCursor(0,1);
+  lcd.print("DALI ABDELLATIF");
+  delay(2000);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("USTO M2 ESE");
+  delay(2000);
+  lcd.clear();
+  lcd.print("WAIT FOR TEMP ..");
+  delay(2000);
+  lcd.clear();
   for(unsigned char i = 0; i < 3; ++i)
-  {
-    digitalWrite(pins[6], values[digits[i]] & 0x40);
-    digitalWrite(pins[5], values[digits[i]] & 0x20);
-    digitalWrite(pins[4], values[digits[i]] & 0x10);
-    digitalWrite(pins[3], values[digits[i]] & 0x08);
-    digitalWrite(pins[2], values[digits[i]] & 0x04);
-    digitalWrite(pins[1], values[digits[i]] & 0x02);
-    digitalWrite(pins[0], values[digits[i]] & 0x01);
-    if(!i)
-    {
-      digitalWrite(pins[7], HIGH);
-      digitalWrite(pins[8], LOW);
-      digitalWrite(pins[9], LOW);
-    }
-    else if(i == 1)
-    {
-      digitalWrite(pins[7], LOW);
-      digitalWrite(pins[8], HIGH);
-      digitalWrite(pins[9], LOW);
-    }
-    else
-    {
-      digitalWrite(pins[7], LOW);
-      digitalWrite(pins[8], LOW);
-      digitalWrite(pins[9], HIGH);
-    }
-    delay(time);
-  }
+    pinMode(pins[i], OUTPUT);
+  //analogReference(INTERNAL);
+  Serial.begin(9600);
 }
-void extractDigits(void)
-{
-  unsigned char i = 0;
-  digits[0] = 0;
-  digits[1] = 0;
-  digits[2] = 0;
-  while(old != 0)
+
+void loop() {
+  temperatureC = readTemperature(); 
+  if(temperatureC >= 0.0 && temperatureC <= 15.0) // IF TEMPERATURE IS BETWEEN [0, 10], WHITE LED ON
   {
-    digits[i++] = old % 10;
-    old /= 10;
+    digitalWrite(pins[0], LOW);
+    digitalWrite(pins[1], LOW);
+    digitalWrite(pins[2], HIGH);
   }
+  else if(temperatureC > 15.0 && temperatureC <= 30.0) // IF TEMPERATURE IS BETWEEN [11, 20], GREEN LED ON
+  {
+    digitalWrite(pins[0], LOW);
+    digitalWrite(pins[1], HIGH);
+    digitalWrite(pins[2], LOW);
+  }
+  else        // IF TEMPERATURE >= 21, RED LED ON
+  {
+    digitalWrite(pins[0], HIGH);
+    digitalWrite(pins[1], LOW);
+    digitalWrite(pins[2], LOW);
+  }
+  lcd.setCursor(0, 0);
+  lcd.print("Temp: ");
+  lcd.print(temperatureC, 1); 
+  lcd.print(" C ");
+  Serial.println(temperatureC);
+  delay(1000);
+  
+}
+
+float readTemperature()
+{
+  const int numReadings = 10; 
+  float total = 0;
+
+  for (int i = 0; i < numReadings; i++) 
+  {
+    int analogValue = analogRead(lm35Pin);       
+    float voltage = analogValue * (5.0 / 1024.0); 
+    total += voltage * 100;                      
+    delay(50);                                   
+  }
+
+  return total / numReadings; // Return average temperature
 }
